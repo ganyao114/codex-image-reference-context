@@ -1,0 +1,127 @@
+name: Image reference multi-platform artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_MIN_STACK: 8388608
+  RUSTUP_TOOLCHAIN: 1.98.0
+  CARGO_BUILD_JOBS: 2
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_RELEASE_DEBUG: 0
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev libcap-dev clang cmake protobuf-compiler
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582
+        with:
+          toolchain: 1.98.0
+      - name: Test local artifacts
+        working-directory: codex-rs
+        run: cargo +1.98.0 test --locked -p codex-utils-image artifacts::tests --lib
+      - name: Test isolated visual analysis and text-only history
+        working-directory: codex-rs
+        run: cargo +1.98.0 test --locked -p codex-core --test image_reference_context
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582
+        with:
+          toolchain: 1.98.0
+          targets: ${{ matrix.target }}
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev libcap-dev clang cmake protobuf-compiler
+      - name: Configure Windows SDK
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/setup-msvc-env
+        with:
+          target: ${{ matrix.target }}
+      - name: Configure verified V8 artifacts
+        uses: ./.github/actions/setup-rusty-v8
+        with:
+          target: ${{ matrix.target }}
+      - name: Build Linux sandbox resource
+        if: runner.os == 'Linux'
+        working-directory: codex-rs
+        shell: bash
+        run: |
+          cargo +1.98.0 build --locked --release --target '${{ matrix.target }}' --bin bwrap
+          binary='target/${{ matrix.target }}/release/bwrap'
+          strip "$binary"
+          echo "CODEX_BWRAP_SHA256=$(sha256sum "$binary" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+      - name: Build CLI and companion binaries
+        working-directory: codex-rs
+        shell: bash
+        env:
+          STABLE_GIT_COMMIT: ${{ github.sha }}
+        run: cargo +1.98.0 build --locked --release --target '${{ matrix.target }}' --bin codex --bin codex-app-server --bin codex-code-mode-host --bin codex-responses-api-proxy
+      - name: Package and checksum binaries
+        shell: bash
+        run: python3 .github/scripts/package-image-reference.py '${{ matrix.target }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: codex-image-reference-${{ matrix.target }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: [test, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish tested multi-platform artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          tag="image-reference-${RUN_NUMBER}"
+          gh release create "$tag" dist/* --target "$COMMIT" --title "Image reference build ${RUN_NUMBER}" --notes "Local image references and isolated visual descriptions. Enable with --enable image_reference_context. Built from ${COMMIT}; all focused regression tests passed."
