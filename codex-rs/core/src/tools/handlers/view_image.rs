@@ -39,6 +39,7 @@ impl Default for ViewImageHandler {
                 can_request_original_image_detail: false,
                 unified_image_budget: false,
                 include_environment_id: false,
+                reference_only: false,
             },
         }
     }
@@ -205,6 +206,20 @@ impl ViewImageHandler {
         session.emit_turn_item_started(turn.as_ref(), &item).await;
         session.emit_turn_item_completed(turn.as_ref(), item).await;
 
+        if self.options.reference_only {
+            let description = Box::pin(crate::image_reference::describe_inline(
+                &session,
+                &turn,
+                &step_context.settings.model_info,
+                &image_url,
+            ))
+            .await
+            .map_err(|error| FunctionCallError::RespondToModel(format!(
+                "isolated image analysis failed for `{model_visible_path}`: {error}; no image bytes were added to the main conversation"
+            )))?;
+            return Ok(boxed_tool_output(ReferencedImageOutput(description)));
+        }
+
         Ok(boxed_tool_output(ViewImageOutput {
             image_url,
             image_detail,
@@ -223,6 +238,36 @@ pub struct ViewImageOutput {
     image_url: String,
     image_detail: ImageDetail,
     unified_image_budget: bool,
+}
+
+struct ReferencedImageOutput(crate::image_reference::ImageDescription);
+
+impl ToolOutput for ReferencedImageOutput {
+    fn log_output(&self) -> String {
+        self.0.text()
+    }
+
+    fn success_for_logging(&self) -> bool {
+        self.0.analysis_status == "complete"
+    }
+
+    fn to_response_item(&self, call_id: &str, _payload: &ToolPayload) -> ResponseInputItem {
+        ResponseInputItem::FunctionCallOutput {
+            call_id: call_id.to_string(),
+            output: FunctionCallOutputPayload {
+                body: FunctionCallOutputBody::ContentItems(vec![
+                    FunctionCallOutputContentItem::InputText {
+                        text: self.0.text(),
+                    },
+                ]),
+                success: Some(self.0.analysis_status == "complete"),
+            },
+        }
+    }
+
+    fn code_mode_result(&self, _payload: &ToolPayload) -> serde_json::Value {
+        serde_json::to_value(&self.0).expect("image reference serialization")
+    }
 }
 
 impl ToolOutput for ViewImageOutput {

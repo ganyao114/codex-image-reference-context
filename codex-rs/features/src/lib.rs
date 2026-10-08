@@ -332,6 +332,8 @@ pub enum Feature {
     ImageResizeNotice,
     /// Apply one shared pixel and token budget to every image, regardless of legacy detail hints.
     UnifiedImageBudget,
+    /// Keep local image references and isolated visual descriptions instead of image history.
+    ImageReferenceContext,
     /// Removed compatibility flag for always-on centralized image preparation.
     ResizeAllImages,
     /// Removed compatibility flag for always-on response item IDs.
@@ -1703,6 +1705,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::UnifiedImageBudget,
         key: "unified_image_budget",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::ImageReferenceContext,
+        key: "image_reference_context",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },
