@@ -102,8 +102,13 @@ jobs:
           fi
           cargo +1.98.0 build --locked --release --target '${{ matrix.target }}' --bin codex --bin codex-app-server --bin codex-code-mode-host --bin codex-responses-api-proxy "${extra[@]}"
       - name: Package and checksum binaries
+      # Run the native executable on each runner, including ARM64.
         shell: bash
-        run: python3 .github/scripts/package-image-reference.py '${{ matrix.target }}'
+        run: |
+          binary='codex-rs/target/${{ matrix.target }}/release/codex'
+          if [[ '${{ matrix.target }}' == *-windows-msvc ]]; then binary="${binary}.exe"; fi
+          "$binary" --version
+          python3 .github/scripts/package-image-reference.py '${{ matrix.target }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: codex-image-reference-${{ matrix.target }}

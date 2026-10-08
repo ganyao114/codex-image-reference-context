@@ -47,8 +47,7 @@ if "windows" in target:
     archive = dist / (name + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as stream:
         for p in stage.rglob("*"):
-            if p.is_file():
-                stream.write(p, str(p.relative_to(stage.parent)))
+            stream.write(p, p.relative_to(stage.parent).as_posix())
 else:
     archive = dist / (name + ".tar.gz")
     with tarfile.open(archive, "w:gz") as stream:
