@@ -63,6 +63,9 @@ jobs:
             target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
+    env:
+      CARGO_PROFILE_RELEASE_LTO: ${{ matrix.target == 'x86_64-apple-darwin' && 'false' || 'thin' }}
+      CARGO_BUILD_JOBS: ${{ matrix.target == 'x86_64-apple-darwin' && '1' || '2' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582

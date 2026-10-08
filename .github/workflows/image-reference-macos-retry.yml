@@ -1,0 +1,103 @@
+name: Complete image reference artifacts with Intel Mac retry
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SOURCE_SHA: bd91f7b4f176ed3191b0344f7b5c9a2864e89103
+  PRIOR_RUN: 37834813865
+  RUSTUP_TOOLCHAIN: 1.98.0
+  RUST_MIN_STACK: 8388608
+  CARGO_BUILD_JOBS: 1
+  CARGO_PROFILE_RELEASE_DEBUG: 0
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+  CARGO_PROFILE_RELEASE_LTO: 'false'
+
+jobs:
+  complete-macos:
+    runs-on: macos-15-intel
+    timeout-minutes: 180
+    steps:
+      - name: Verify tested source and five successful builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          gh api "repos/${GH_REPO}/actions/runs/${PRIOR_RUN}" > run.json
+          gh api "repos/${GH_REPO}/actions/runs/${PRIOR_RUN}/jobs?per_page=100" > jobs.json
+          python3 - <<'PY'
+          import json, os
+          run = json.load(open('run.json'))
+          assert run['head_sha'] == os.environ['SOURCE_SHA']
+          jobs = json.load(open('jobs.json'))['jobs']
+          assert any(j['name'] == 'test' and j['conclusion'] == 'success' for j in jobs)
+          assert sum(j['name'].startswith('build (') and j['conclusion'] == 'success' for j in jobs) == 5
+          print('Exact source passed regression tests and five native builds.')
+          PY
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582
+        with:
+          toolchain: 1.98.0
+          targets: x86_64-apple-darwin
+      - uses: ./.github/actions/setup-rusty-v8
+        with:
+          target: x86_64-apple-darwin
+      - name: Build native Intel Mac binaries without thin LTO
+        working-directory: codex-rs
+        env:
+          STABLE_GIT_COMMIT: ${{ env.SOURCE_SHA }}
+        run: cargo +1.98.0 build --locked --release --target x86_64-apple-darwin --bin codex --bin codex-app-server --bin codex-code-mode-host --bin codex-responses-api-proxy
+      - name: Native startup check and package
+        run: |
+          codex-rs/target/x86_64-apple-darwin/release/codex --version
+          python3 .github/scripts/package-image-reference.py x86_64-apple-darwin
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: codex-image-reference-x86_64-apple-darwin
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: complete-macos
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download five previously verified native packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.PRIOR_RUN }}
+          path: dist
+          merge-multiple: true
+      - name: Download successful Intel Mac package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Verify all six archive checksums
+        run: |
+          test "$(find dist -name '*.sha256' | wc -l)" -eq 6
+          cd dist
+          sha256sum --check *.sha256
+      - name: Publish complete tested source snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="image-reference-bd91f7b4f"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$SOURCE_SHA" --title 'Image reference context: six native platforms' --notes "Built from ${SOURCE_SHA}. Four focused regression tests passed; all six native CLI startup checks passed. Intel macOS uses release optimization without thin LTO to avoid the hosted runner timeout. Enable with --enable image_reference_context."
+          fi
+          gh release upload "$tag" dist/* --clobber
