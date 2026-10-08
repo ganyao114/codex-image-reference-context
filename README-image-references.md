@@ -10,7 +10,7 @@ Large screenshots should not be replayed as inline Base64 in every main-model re
 
 Run the custom binary with `--enable image_reference_context`, or enable `image_reference_context = true` inside the `[features]` table in its Codex configuration. The feature is opt-in; upstream behavior remains unchanged when disabled.
 
-The build archives contain `bin/codex`, `bin/codex-app-server`, `bin/codex-code-mode-host`, and `bin/codex-responses-api-proxy` (with `.exe` suffixes on Windows). Linux archives also contain the sandbox `resources/bwrap`.
+The build archives contain `bin/codex`, `bin/codex-app-server`, `bin/codex-code-mode-host`, and `bin/codex-responses-api-proxy` (with `.exe` suffixes on Windows). Linux archives also contain `codex-resources/bwrap`; Windows archives contain the command-runner and sandbox-setup helpers in `codex-resources`. Keep the package directory structure intact. Install `rg` separately if it is not already on your PATH.
 
 This is a custom CLI/app-server build. Installing the CLI alone does not change the binary bundled with Codex Desktop.
 

@@ -95,7 +95,12 @@ jobs:
         shell: bash
         env:
           STABLE_GIT_COMMIT: ${{ github.sha }}
-        run: cargo +1.98.0 build --locked --release --target '${{ matrix.target }}' --bin codex --bin codex-app-server --bin codex-code-mode-host --bin codex-responses-api-proxy
+        run: |
+          extra=()
+          if [[ '${{ matrix.target }}' == *-windows-msvc ]]; then
+            extra+=(--bin codex-command-runner --bin codex-windows-sandbox-setup)
+          fi
+          cargo +1.98.0 build --locked --release --target '${{ matrix.target }}' --bin codex --bin codex-app-server --bin codex-code-mode-host --bin codex-responses-api-proxy "${extra[@]}"
       - name: Package and checksum binaries
         shell: bash
         run: python3 .github/scripts/package-image-reference.py '${{ matrix.target }}'
