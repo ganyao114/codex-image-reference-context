@@ -75,14 +75,14 @@ jobs:
       actions: read
     steps:
       - name: Download five previously verified native packages
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           github-token: ${{ github.token }}
           run-id: ${{ env.PRIOR_RUN }}
           path: dist
           merge-multiple: true
       - name: Download successful Intel Mac package
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: dist
           merge-multiple: true
