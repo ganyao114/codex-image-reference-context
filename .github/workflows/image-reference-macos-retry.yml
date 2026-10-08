@@ -39,7 +39,7 @@ jobs:
           assert sum(j['name'].startswith('build (') and j['conclusion'] == 'success' for j in jobs) == 5
           print('Exact source passed regression tests and five native builds.')
           PY
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.SOURCE_SHA }}
       - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582
