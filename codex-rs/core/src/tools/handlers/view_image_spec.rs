@@ -11,6 +11,7 @@ pub struct ViewImageToolOptions {
     pub can_request_original_image_detail: bool,
     pub unified_image_budget: bool,
     pub include_environment_id: bool,
+    pub reference_only: bool,
 }
 
 pub fn create_view_image_tool(options: ViewImageToolOptions) -> ToolSpec {
@@ -18,7 +19,10 @@ pub fn create_view_image_tool(options: ViewImageToolOptions) -> ToolSpec {
         "path".to_string(),
         JsonSchema::string(Some("Local filesystem path to an image file.".to_string())),
     )]);
-    if options.can_request_original_image_detail && !options.unified_image_budget {
+    if options.can_request_original_image_detail
+        && !options.unified_image_budget
+        && !options.reference_only
+    {
         properties.insert(
             "detail".to_string(),
             JsonSchema::string_enum(
@@ -41,16 +45,35 @@ pub fn create_view_image_tool(options: ViewImageToolOptions) -> ToolSpec {
 
     ToolSpec::Function(ResponsesApiTool {
         name: VIEW_IMAGE_TOOL_NAME.to_string(),
-        description: "View a local image file from the filesystem when visual inspection is needed. Use this for images already available on disk."
-            .to_string(),
+        description: if options.reference_only {
+            "Analyze a local image in a separate one-shot visual request. Returns only a local disk reference and factual visual description, never image bytes. Use text(result.description), not image(result), in code mode.".to_string()
+        } else {
+            "View a local image file from the filesystem when visual inspection is needed. Use this for images already available on disk.".to_string()
+        },
         strict: false,
         defer_loading: None,
-        parameters: JsonSchema::object(properties, Some(vec!["path".to_string()]), Some(false.into())),
+        parameters: JsonSchema::object(
+            properties,
+            Some(vec!["path".to_string()]),
+            Some(false.into()),
+        ),
         output_schema: Some(view_image_output_schema(options).into()),
     })
 }
 
 fn view_image_output_schema(options: ViewImageToolOptions) -> Value {
+    if options.reference_only {
+        return json!({
+            "type": "object",
+            "properties": {
+                "image_reference": {"type": "object", "description": "Local disk image artifact metadata; contains no image bytes."},
+                "description": {"type": "string", "description": "Factual description from an isolated visual analysis request."},
+                "analysis_status": {"type": "string", "enum": ["complete", "unavailable"]}
+            },
+            "required": ["image_reference", "description", "analysis_status"],
+            "additionalProperties": false
+        });
+    }
     let mut schema = json!({
         "type": "object",
         "properties": {

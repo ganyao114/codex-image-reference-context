@@ -1472,6 +1472,7 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, registry: &mut Tool
                 context.model_info,
             ),
             include_environment_id,
+            reference_only: features.enabled(Feature::ImageReferenceContext),
         }));
     }
 }
