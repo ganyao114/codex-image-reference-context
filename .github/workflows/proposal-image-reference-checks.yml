@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: 757f93429b0b92cb2a37f90bde2b26ce60880aa9
+          ref: 9f040d2ec84f8739528c1b08c790e1d3c97fa433
           persist-credentials: false
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev libcap-dev clang cmake protobuf-compiler
@@ -27,7 +27,8 @@ jobs:
         with:
           toolchain: 1.95.0
           components: rustfmt, clippy
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
@@ -57,3 +58,11 @@ jobs:
         run: |
           cargo clippy --locked -p codex-utils-image --lib --tests -- -D warnings
           cargo clippy --locked -p codex-core --test image_reference_context -- -D warnings
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        if: always() && steps.cargo-cache.outcome == 'success' && steps.cargo-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            codex-rs/target
+          key: ${{ runner.os }}-image-proposal-rust-1.95-${{ hashFiles('codex-rs/Cargo.lock') }}
