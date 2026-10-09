@@ -14,6 +14,12 @@ The build archives contain `bin/codex`, `bin/codex-app-server`, `bin/codex-code-
 
 This is a custom CLI/app-server build. Installing the CLI alone does not change the binary bundled with Codex Desktop.
 
+## ChatGPT model compatibility
+
+The initial archives reported upstream's development version `0.0.0`. On the tested ChatGPT account, the backend rejected `gpt-6.1-sol` with that version, while the same executable and custom provider succeeded with a release-compatible version header. This fork now builds as `0.160.1-image-reference.1`; package metadata uses the same workspace version. The suffix identifies this unofficial fork.
+
+For the original Windows archive, copy `.github/scripts/codex-image-reference-compat.ps1` beside its `bin` directory and run `& ./codex-image-reference-compat.ps1 exec --model gpt-6.1-sol ...` in PowerShell 7. This process-only compatibility provider uses the existing ChatGPT login and leaves global configuration unchanged. It enables image references and forwards remaining CLI arguments. It does not grant model access to an account that lacks it. No model-catalog override was required for the successful `gpt-6.1-sol` real-image test.
+
 ## Image lifecycle
 
 1. Read and validate the image using the existing tool/environment read permissions.

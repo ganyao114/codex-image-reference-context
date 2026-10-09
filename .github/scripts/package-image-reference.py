@@ -4,11 +4,13 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import tomllib
 import tarfile
 import zipfile
 
 target = sys.argv[1]
 root = Path(__file__).resolve().parents[2]
+version = tomllib.loads((root / "codex-rs" / "Cargo.toml").read_text(encoding="utf-8"))["workspace"]["package"]["version"]
 release = root / "codex-rs" / "target" / target / "release"
 name = "codex-image-reference-" + target
 stage = root / "dist" / "staging" / name
@@ -29,7 +31,7 @@ if "windows" in target:
         shutil.copy2(release / binary, stage / "codex-resources" / binary)
 (stage / "codex-package.json").write_text(json.dumps({
     "layoutVersion": 1,
-    "version": "0.0.0",
+    "version": version,
     "target": target,
     "variant": "codex",
     "entrypoint": "bin/codex" + suffix,

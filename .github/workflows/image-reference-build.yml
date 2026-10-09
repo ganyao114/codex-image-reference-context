@@ -111,6 +111,11 @@ jobs:
           binary='codex-rs/target/${{ matrix.target }}/release/codex'
           if [[ '${{ matrix.target }}' == *-windows-msvc ]]; then binary="${binary}.exe"; fi
           "$binary" --version
+          expected=$(python3 -c 'import tomllib; print(tomllib.load(open("codex-rs/Cargo.toml", "rb"))["workspace"]["package"]["version"])')
+          if [[ "$expected" == '0.0.0' || "$("$binary" --version)" != "codex-cli $expected" ]]; then
+            echo 'Native binary must report the nonzero fork workspace version.' >&2
+            exit 1
+          fi
           python3 .github/scripts/package-image-reference.py '${{ matrix.target }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
