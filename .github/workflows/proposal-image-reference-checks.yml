@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: 9f040d2ec84f8739528c1b08c790e1d3c97fa433
+          ref: 2e1cbc75b1a02e56031a693eb4e55d719c629d26
           persist-credentials: false
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev libcap-dev clang cmake protobuf-compiler
