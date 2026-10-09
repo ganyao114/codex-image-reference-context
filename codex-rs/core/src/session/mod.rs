@@ -1800,6 +1800,13 @@ impl Session {
             .into_iter()
             .map(|envelope| (envelope.item, envelope.metadata))
             .unzip();
+        Box::pin(crate::image_reference::prepare_replayed_history(
+            self,
+            turn_context,
+            turn_context.model_info(),
+            &mut prepared_history,
+        ))
+        .await;
         // Replay must not upload or migrate recorded history. The inline store returns prepared
         // inline bytes, while existing file references bypass preparation and remain unchanged.
         // Bound replay future size now that image preparation can await storage.
@@ -3454,6 +3461,13 @@ impl Session {
         items: &'a [ResponseItem],
     ) -> (Cow<'a, [ResponseItem]>, Vec<ImagePreparationMetadata>) {
         let mut items = items.to_vec();
+        Box::pin(crate::image_reference::prepare_history(
+            self,
+            turn_context,
+            model_info,
+            &mut items,
+        ))
+        .await;
         let image_preparation_mode =
             if unified_image_budget_enabled(&turn_context.config.features, model_info) {
                 ImagePreparationMode::UnifiedBudget
@@ -5067,6 +5081,17 @@ impl Session {
             &prepared_items,
             &user_image_content_indices,
         );
+        if turn_context
+            .config
+            .features
+            .enabled(Feature::ImageReferenceContext)
+        {
+            crate::image_reference::apply_user_references(
+                &mut user_message_item,
+                &prepared_items,
+                &user_image_content_indices,
+            );
+        }
         self.record_prepared_conversation_items(
             turn_context,
             model_info,

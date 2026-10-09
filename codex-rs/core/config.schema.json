@@ -959,6 +959,9 @@
             "image_generation": {
               "type": "boolean"
             },
+            "image_reference_context": {
+              "type": "boolean"
+            },
             "image_resize_notice": {
               "type": "boolean"
             },
@@ -7247,6 +7250,9 @@
           "type": "boolean"
         },
         "image_generation": {
+          "type": "boolean"
+        },
+        "image_reference_context": {
           "type": "boolean"
         },
         "image_resize_notice": {

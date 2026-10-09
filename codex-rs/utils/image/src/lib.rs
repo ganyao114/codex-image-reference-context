@@ -32,6 +32,7 @@ pub const MAX_PROMPT_IMAGE_INPUT_BYTES: usize = 1024 * 1024 * 1024;
 const MAX_IMAGE_CACHE_BYTES: usize = 64 * 1024 * 1024;
 
 pub mod error;
+pub mod artifacts;
 
 pub use crate::error::ImageProcessingError;
 
