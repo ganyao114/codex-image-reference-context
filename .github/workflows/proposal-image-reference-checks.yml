@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: c908558914e40c58f45129946c12a70f7f4b05cc
+          ref: 757f93429b0b92cb2a37f90bde2b26ce60880aa9
           persist-credentials: false
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev libcap-dev clang cmake protobuf-compiler
@@ -27,6 +27,13 @@ jobs:
         with:
           toolchain: 1.95.0
           components: rustfmt, clippy
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            codex-rs/target
+          key: ${{ runner.os }}-image-proposal-rust-1.95-${{ hashFiles('codex-rs/Cargo.lock') }}
       - name: Configure verified V8 artifacts
         uses: ./.github/actions/setup-rusty-v8
         with:
